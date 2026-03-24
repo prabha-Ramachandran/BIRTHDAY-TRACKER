@@ -1,0 +1,100 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    font-family: Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: white;
+    padding: 15px 30px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+.welcome { font-weight: bold; color: #333; }
+.logout-btn {
+    background: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+.logout-btn:hover { background: #d32f2f; }
+.container { max-width: 800px; margin: 0 auto; }
+h1 { text-align: center; color: white; margin-bottom: 30px; }
+.form-container, .reminder-section, .birthday-list {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+h2 { margin-bottom: 15px; color: #333; }
+form { display: flex; gap: 10px; flex-wrap: wrap; }
+input, button {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+}
+input { flex: 1; min-width: 200px; }
+button {
+    background: #667eea;
+    color: white;
+    cursor: pointer;
+    border: none;
+    padding: 12px 24px;
+}
+button:hover { background: #764ba2; }
+.birthday-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+}
+.birthday-actions button {
+    margin-left: 10px;
+    padding: 5px 12px;
+    font-size: 14px;
+}
+.edit-btn { background: #4CAF50; }
+.delete-btn { background: #f44336; }
+.reminder-card {
+    background: #fff3e0;
+    padding: 12px 15px;
+    margin: 8px 0;
+    border-radius: 5px;
+    border-left: 4px solid #ff9800;
+}
+.reminder-card.today {
+    border-left-color: #f44336;
+    background: #ffe6e6;
+}
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+}
+.modal-content {
+    background: white;
+    width: 90%;
+    max-width: 400px;
+    margin: 100px auto;
+    padding: 20px;
+    border-radius: 10px;
+}
+.modal-content form { display: flex; flex-direction: column; gap: 10px; }
+.modal-content button { width: 100%; }

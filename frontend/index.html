@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Tracker</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <div class="welcome">🎉 Welcome, <span id="userName"></span>!</div>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </div>
+    <div class="container">
+        <h1>🎂 Birthday Tracker</h1>
+        <div class="form-container">
+            <h2>➕ Add New Birthday</h2>
+            <form id="birthdayForm">
+                <input type="text" id="name" placeholder="Enter name" required>
+                <input type="date" id="birthdate" required>
+                <button type="submit">Add Birthday</button>
+            </form>
+        </div>
+        <div class="reminder-section">
+            <h2>🎈 Upcoming Birthdays (Next 30 Days)</h2>
+            <div id="reminderList">Loading...</div>
+        </div>
+        <div class="birthday-list">
+            <h2>📅 All Birthdays</h2>
+            <div id="birthdayContainer"></div>
+        </div>
+    </div>
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <h2>✏️ Edit Birthday</h2>
+            <form id="editForm">
+                <input type="hidden" id="editId">
+                <input type="text" id="editName" placeholder="Name" required>
+                <input type="date" id="editBirthdate" required>
+                <button type="submit">Update</button>
+                <button type="button" onclick="closeModal()">Cancel</button>
+            </form>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
