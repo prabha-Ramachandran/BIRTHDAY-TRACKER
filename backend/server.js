@@ -1,10 +1,9 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const { Pool } = require('pg');
 const cors = require('cors');
 const path = require('path');
 const jwt = require('jsonwebtoken');
-const User = require('./models/user');
-const Birthday = require('./models/birthday');
+const bcrypt = require('bcryptjs');
 
 const app = express();
 const JWT_SECRET = 'birthday_tracker_secret_2024';
@@ -12,14 +11,32 @@ const JWT_SECRET = 'birthday_tracker_secret_2024';
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
-const mongoURI = 'mongodb://localhost:27017/birthdayDB';
 
-mongoose.connect(mongoURI, {
-    serverSelectionTimeoutMS: 30000,
-    connectTimeoutMS: 30000
-})
-.then(() => console.log('Connected to MongoDB'))
-.catch(err => console.log('MongoDB Error:', err));
+// PostgreSQL Connection
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL || 'postgresql://localhost/birthday_db'
+});
+
+// Create tables
+const initDB = async () => {
+    await pool.query(`
+        CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            name TEXT,
+            email TEXT UNIQUE,
+            password TEXT
+        );
+        
+        CREATE TABLE IF NOT EXISTS birthdays (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            name TEXT,
+            birthdate TEXT
+        );
+    `);
+    console.log('✅ Database tables ready');
+};
+initDB();
 
 const authMiddleware = async (req, res, next) => {
     const token = req.headers.authorization;
@@ -33,81 +50,98 @@ const authMiddleware = async (req, res, next) => {
     }
 };
 
+// Sign Up
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
-        const existing = await User.findOne({ email });
-        if (existing) return res.status(400).json({ error: 'Email already exists' });
-        const user = new User({ name, email, password });
-        await user.save();
-        const token = jwt.sign({ userId: user._id }, JWT_SECRET);
-        res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+        const existing = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const result = await pool.query(
+            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email',
+            [name, email, hashedPassword]
+        );
+        const user = result.rows[0];
+        const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+        res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
+// Login
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        const user = await User.findOne({ email });
+        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        const user = result.rows[0];
         if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-        const isMatch = await user.comparePassword(password);
+        const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
-        const token = jwt.sign({ userId: user._id }, JWT_SECRET);
-        res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
+        const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+        res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
+// Get birthdays
 app.get('/api/birthdays', authMiddleware, async (req, res) => {
     try {
-        const birthdays = await Birthday.find({ userId: req.userId });
-        res.json(birthdays);
+        const result = await pool.query('SELECT * FROM birthdays WHERE user_id = $1', [req.userId]);
+        res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
+// Get single birthday
 app.get('/api/birthdays/:id', authMiddleware, async (req, res) => {
     try {
-        const birthday = await Birthday.findOne({ _id: req.params.id, userId: req.userId });
-        if (!birthday) return res.status(404).json({ error: 'Not found' });
-        res.json(birthday);
+        const result = await pool.query('SELECT * FROM birthdays WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        res.json(result.rows[0]);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
+// Add birthday
 app.post('/api/birthdays', authMiddleware, async (req, res) => {
     try {
-        const birthday = new Birthday({ ...req.body, userId: req.userId });
-        await birthday.save();
-        res.status(201).json(birthday);
+        const { name, birthdate } = req.body;
+        const result = await pool.query(
+            'INSERT INTO birthdays (user_id, name, birthdate) VALUES ($1, $2, $3) RETURNING *',
+            [req.userId, name, birthdate]
+        );
+        res.status(201).json(result.rows[0]);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
 });
 
+// Update birthday
 app.put('/api/birthdays/:id', authMiddleware, async (req, res) => {
     try {
-        const updated = await Birthday.findOneAndUpdate(
-            { _id: req.params.id, userId: req.userId },
-            req.body,
-            { new: true }
+        const { name, birthdate } = req.body;
+        const result = await pool.query(
+            'UPDATE birthdays SET name = $1, birthdate = $2 WHERE id = $3 AND user_id = $4 RETURNING *',
+            [name, birthdate, req.params.id, req.userId]
         );
-        if (!updated) return res.status(404).json({ error: 'Not found' });
-        res.json(updated);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        res.json(result.rows[0]);
     } catch (error) {
         res.status(400).json({ error: error.message });
     }
 });
 
+// Delete birthday
 app.delete('/api/birthdays/:id', authMiddleware, async (req, res) => {
     try {
-        const deleted = await Birthday.findOneAndDelete({ _id: req.params.id, userId: req.userId });
-        if (!deleted) return res.status(404).json({ error: 'Not found' });
+        const result = await pool.query('DELETE FROM birthdays WHERE id = $1 AND user_id = $2 RETURNING *', [req.params.id, req.userId]);
+        if (result.rows.length === 0) return res.status(404).json({ error: 'Not found' });
         res.json({ message: 'Deleted' });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -120,5 +154,5 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log('Server running on port ' + PORT);
+    console.log(🚀 Server running on port ${PORT});
 });
