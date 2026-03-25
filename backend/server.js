@@ -12,29 +12,33 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 
-// PostgreSQL Connection
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://localhost/birthday_db'
+    connectionString: process.env.DATABASE_URL || 'postgresql://localhost/birthday_db',
+    ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// Create tables
 const initDB = async () => {
-    await pool.query(`
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            name TEXT,
-            email TEXT UNIQUE,
-            password TEXT
-        );
-        
-        CREATE TABLE IF NOT EXISTS birthdays (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES users(id),
-            name TEXT,
-            birthdate TEXT
-        );
-    `);
-    console.log('✅ Database tables ready');
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name TEXT,
+                email TEXT UNIQUE,
+                password TEXT
+            )
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS birthdays (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id),
+                name TEXT,
+                birthdate TEXT
+            )
+        `);
+        console.log('Database tables ready');
+    } catch (err) {
+        console.log('Database error:', err.message);
+    }
 };
 initDB();
 
@@ -50,7 +54,6 @@ const authMiddleware = async (req, res, next) => {
     }
 };
 
-// Sign Up
 app.post('/api/signup', async (req, res) => {
     try {
         const { name, email, password } = req.body;
@@ -71,7 +74,6 @@ app.post('/api/signup', async (req, res) => {
     }
 });
 
-// Login
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -87,7 +89,6 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// Get birthdays
 app.get('/api/birthdays', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM birthdays WHERE user_id = $1', [req.userId]);
@@ -97,7 +98,6 @@ app.get('/api/birthdays', authMiddleware, async (req, res) => {
     }
 });
 
-// Get single birthday
 app.get('/api/birthdays/:id', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM birthdays WHERE id = $1 AND user_id = $2', [req.params.id, req.userId]);
@@ -108,7 +108,6 @@ app.get('/api/birthdays/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// Add birthday
 app.post('/api/birthdays', authMiddleware, async (req, res) => {
     try {
         const { name, birthdate } = req.body;
@@ -122,7 +121,6 @@ app.post('/api/birthdays', authMiddleware, async (req, res) => {
     }
 });
 
-// Update birthday
 app.put('/api/birthdays/:id', authMiddleware, async (req, res) => {
     try {
         const { name, birthdate } = req.body;
@@ -137,7 +135,6 @@ app.put('/api/birthdays/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// Delete birthday
 app.delete('/api/birthdays/:id', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query('DELETE FROM birthdays WHERE id = $1 AND user_id = $2 RETURNING *', [req.params.id, req.userId]);
@@ -154,5 +151,5 @@ app.get('*', (req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(🚀 Server running on port ${PORT});
+    console.log('Server running on port ' + PORT);
 });
