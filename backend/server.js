@@ -14,7 +14,10 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend')));
 const mongoURI = 'mongodb://localhost:27017/birthdayDB';
 
-mongoose.connect(mongoURI)
+mongoose.connect(mongoURI, {
+    serverSelectionTimeoutMS: 30000,
+    connectTimeoutMS: 30000
+})
 .then(() => console.log('Connected to MongoDB'))
 .catch(err => console.log('MongoDB Error:', err));
 
